@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
+//Bug found, if player (On client or host / server) hold a direction while jumping, the reciever (If you're moving host, its client and vice versa) see that the other players avatar
+//Does not ground itself and floats up in the air.
 public class PlayerNetworkMovementTest : NetworkBehaviour
 {
     //How fast we move
@@ -13,10 +15,16 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
     [SerializeField] private CharacterController _characterController;
     //Generated (new) input system
     [SerializeField] private PlayerInput _playerInput;
+    //Calculate players movement
+    [SerializeField] private Vector3 _calculateMovement;
     //Gravity
-    [SerializeField] private float _gravity = -9.2f;
+    [SerializeField] private float _gravity = -20f;
     //Jumping
-    [SerializeField] private float _jumpSpeed = 20f;
+    [SerializeField] private float _jumpSpeed = 8f;
+    //Crouching
+    [SerializeField] private float _crouchSpeed = 2.5f;
+    //Sprinting
+    [SerializeField] private float _sprintSpeed = 10f;
 
 
     private void Start()
@@ -28,35 +36,49 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
     }
 
 
-    private void Move(Vector2 input)
+    private void Move(Vector2 input, float jump, float sprint, float crouch)
     {
-        Vector3 calculateMovement = input.x * _playerTransform.right + input.y * _playerTransform.forward;
-        _characterController.Move(calculateMovement * _playerSpeed * Time.deltaTime);
+        if (_characterController.isGrounded)
+        {
+            _calculateMovement = new Vector3(input.x,0,input.y);
+            _calculateMovement = transform.TransformDirection(_calculateMovement);
+            _calculateMovement *= _playerSpeed;
 
-        Vector3 applyGravity = new Vector3(0, _gravity, 0);
-        _characterController.Move(applyGravity * Time.deltaTime);
+            if (jump > 0)
+            {
+                _calculateMovement.y = _jumpSpeed;
+                Debug.Log("Jump");
+            }
+            if (sprint > 0)
+            {
+                _calculateMovement = new Vector3(input.x, 0, input.y);
+                _calculateMovement = transform.TransformDirection(_calculateMovement);
+                _calculateMovement *= _sprintSpeed;
+                Debug.Log("Sprint");
+            }
+
+            if (crouch > 0)
+            {
+                _calculateMovement = new Vector3(input.x, 0, input.y);
+                _calculateMovement = transform.TransformDirection(_calculateMovement);
+                _calculateMovement *= _crouchSpeed;
+                Debug.Log("Crouch");
+            }
+        }
+
+        _calculateMovement.y -= _gravity * Time.deltaTime;
+        _characterController.Move(_calculateMovement * Time.deltaTime);
+
+        
 
     }
-
-    private void Jump(float input)
-    {
-        Vector2 playerJump = input * _playerTransform.up;
-        _characterController.Move(playerJump * _jumpSpeed * Time.deltaTime);
-    }
-
 
     // Requesting permission to move from the server based on behaviour.
     [ServerRpc]
-    private void MoveServerRpc(Vector2 input)
+    private void MoveServerRpc(Vector2 input, float jump, float sprint, float crouch)
     {
-        Move(input);
+        Move(input, jump, sprint, crouch);
 
-    }
-
-    [ServerRpc]
-    private void JumpServerRpc(float input)
-    {
-        Jump(input);
     }
 
 
@@ -65,39 +87,19 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
         //read movement values. Reference (_playerInput), action map (Player), Action (Movement) (Referring to the new input system)
         Vector2 moveInput = _playerInput.Player.Movement.ReadValue<Vector2>();
         float jumpInput = _playerInput.Player.Jump.ReadValue<float>();
+        float sprintInput = _playerInput.Player.Sprint.ReadValue<float>();
+        float crouchInput = _playerInput.Player.Crouch.ReadValue<float>();
 
         //Check are we the server
         if (IsServer && IsLocalPlayer)
         {
             //If so move
-            Move(moveInput);
-            if (_characterController.isGrounded)
-            {
-                if (_playerInput.Player.Jump.IsPressed()) 
-                {
-                    Jump(jumpInput);
-                    Debug.Log("I am jumping");
-                }
-
-            }
+            Move(moveInput, jumpInput, sprintInput, crouchInput);
         }
-
-        //else if client
         else if (IsClient && IsLocalPlayer)
         {
-            //Please let us move server man
-            MoveServerRpc(moveInput);
-            if (_playerInput.Player.Jump.IsPressed())
-            {
-                if (_characterController.isGrounded)
-                {
-
-                    JumpServerRpc(jumpInput);
-                    Debug.Log("I am client jumping");
-                }
-            }
+            MoveServerRpc(moveInput, jumpInput, sprintInput, crouchInput);
         }
-
     }
 
 }

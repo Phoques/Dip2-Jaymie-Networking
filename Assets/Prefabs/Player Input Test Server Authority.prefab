@@ -115,8 +115,11 @@ MonoBehaviour:
   _playerSpeed: 5
   _playerTransform: {fileID: 3166343293031809339}
   _characterController: {fileID: -4266034427426633452}
-  _gravity: -9.2
-  _jumpSpeed: 50
+  _calculateMovement: {x: 0, y: 0, z: 0}
+  _gravity: 10
+  _jumpSpeed: 10
+  _crouchSpeed: 2.5
+  _sprintSpeed: 10
 --- !u!143 &-4266034427426633452
 CharacterController:
   m_ObjectHideFlags: 0
