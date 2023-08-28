@@ -10,7 +10,7 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
     //How fast we move
     [SerializeField] private float _playerSpeed = 5;
     //Player position
-    [SerializeField] private Transform _playerTransform;
+    [SerializeField] private Transform _playerTransform; // No use?
     //Player Controller - component that moves character. Has an inbuilt ground check but not gravity.
     [SerializeField] private CharacterController _characterController;
     //Generated (new) input system
@@ -26,10 +26,12 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
     //Sprinting
     [SerializeField] private float _sprintSpeed = 10f;
 
+    public bool endJump;
+
 
     private void Start()
     {
-        _playerTransform = GetComponent<Transform>();
+        _playerTransform = GetComponent<Transform>();   
         _characterController = GetComponent<CharacterController>();
         _playerInput = new PlayerInput();
         _playerInput.Enable();
@@ -40,13 +42,20 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
     {
         if (_characterController.isGrounded)
         {
-            _calculateMovement = new Vector3(input.x,0,input.y);
+            endJump = true;
+            _calculateMovement = new Vector3(input.x, 0, input.y);
             _calculateMovement = transform.TransformDirection(_calculateMovement);
             _calculateMovement *= _playerSpeed;
 
             if (jump > 0)
             {
+                endJump = false;
                 _calculateMovement.y = _jumpSpeed;
+                if (endJump)
+                {
+                    //_playerTransform = new Vector3(0, 0, 0); See about changing the transform to 0,0,0 or playerpos, 0, playerpos
+                }
+
                 Debug.Log("Jump");
             }
             if (sprint > 0)
@@ -69,7 +78,7 @@ public class PlayerNetworkMovementTest : NetworkBehaviour
         _calculateMovement.y -= _gravity * Time.deltaTime;
         _characterController.Move(_calculateMovement * Time.deltaTime);
 
-        
+
 
     }
 
